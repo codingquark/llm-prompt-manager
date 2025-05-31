@@ -1,0 +1,29 @@
+{
+  "name": "llm-prompt-manager-server",
+  "version": "1.0.0",
+  "description": "Backend server for LLM prompt manager",
+  "main": "index.js",
+  "bin": {
+    "prompt-manager": "./cli.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test-api": "node test-anthropic.js",
+    "cli": "node cli.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "sqlite3": "^5.1.6",
+    "body-parser": "^1.20.2",
+    "uuid": "^9.0.1",
+    "node-fetch": "^2.6.7",
+    "dotenv": "^16.3.1",
+    "commander": "^12.1.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+} 
