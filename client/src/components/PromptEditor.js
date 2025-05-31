@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Save, X, Plus, Lightbulb, Sparkles, Tag, Clock, BookOpen, Wand2 } from 'lucide-react';
 import { promptsApi } from '../services/api';
@@ -21,11 +21,31 @@ function PromptEditor({ categories, onSave }) {
   const [suggestions, setSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
+  const loadPrompt = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await promptsApi.getById(id);
+      const prompt = response.data;
+      setFormData({
+        title: prompt.title,
+        content: prompt.content,
+        category: prompt.category || '',
+        tags: prompt.tags || []
+      });
+    } catch (error) {
+      console.error('Error loading prompt:', error);
+      toast.error('Failed to load prompt');
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
   useEffect(() => {
     if (isEditing) {
       loadPrompt();
     }
-  }, [id, isEditing]);
+  }, [isEditing, loadPrompt]);
 
   const loadSuggestions = async () => {
     if (!formData.content || formData.content.trim().length < 10) {
@@ -43,26 +63,6 @@ function PromptEditor({ categories, onSave }) {
       toast.error('Failed to generate suggestions. Please try again.');
     } finally {
       setLoadingSuggestions(false);
-    }
-  };
-
-  const loadPrompt = async () => {
-    try {
-      setLoading(true);
-      const response = await promptsApi.getById(id);
-      const prompt = response.data;
-      setFormData({
-        title: prompt.title,
-        content: prompt.content,
-        category: prompt.category || '',
-        tags: prompt.tags || []
-      });
-    } catch (error) {
-      console.error('Error loading prompt:', error);
-      toast.error('Failed to load prompt');
-      navigate('/');
-    } finally {
-      setLoading(false);
     }
   };
 

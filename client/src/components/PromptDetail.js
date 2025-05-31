@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Edit, Trash2, Copy, ArrowLeft, Calendar, Tag, Clock } from 'lucide-react';
 import { promptsApi } from '../services/api';
@@ -12,11 +12,7 @@ function PromptDetail({ categories, onPromptDeleted }) {
   const [loading, setLoading] = useState(true);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 
-  useEffect(() => {
-    loadPrompt();
-  }, [id]);
-
-  const loadPrompt = async () => {
+  const loadPrompt = useCallback(async () => {
     try {
       setLoading(true);
       const response = await promptsApi.getById(id);
@@ -28,7 +24,11 @@ function PromptDetail({ categories, onPromptDeleted }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    loadPrompt();
+  }, [id, loadPrompt, categories]);
 
   const handleDelete = async () => {
     if (window.confirm(`Are you sure you want to delete "${prompt.title}"?`)) {
