@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Edit, Trash2, Copy, ArrowLeft, Calendar, Tag } from 'lucide-react';
+import { Edit, Trash2, Copy, ArrowLeft, Calendar, Tag, Clock } from 'lucide-react';
 import { promptsApi } from '../services/api';
 import toast from 'react-hot-toast';
+import VersionHistory from './VersionHistory';
 
 function PromptDetail({ categories, onPromptDeleted }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   useEffect(() => {
     loadPrompt();
@@ -123,6 +125,14 @@ function PromptDetail({ categories, onPromptDeleted }) {
 
           <div className="flex items-center space-x-3">
             <button
+              onClick={() => setShowVersionHistory(!showVersionHistory)}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <Clock className="h-4 w-4" />
+              <span>Versions</span>
+            </button>
+
+            <button
               onClick={handleCopy}
               className="btn-secondary flex items-center space-x-2"
             >
@@ -189,6 +199,20 @@ function PromptDetail({ categories, onPromptDeleted }) {
           </div>
         </div>
       </div>
+
+      {/* Version History */}
+      {showVersionHistory && (
+        <div className="mt-6">
+          <VersionHistory
+            prompt={prompt}
+            onVersionRestore={() => {
+              loadPrompt();
+              setShowVersionHistory(false);
+            }}
+            onClose={() => setShowVersionHistory(false)}
+          />
+        </div>
+      )}
 
       {/* Metadata */}
       <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">

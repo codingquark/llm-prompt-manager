@@ -22,6 +22,9 @@ export const promptsApi = {
   export: () => api.get('/export'),
   getSuggestions: (content, category) => api.post('/prompts/suggestions', { content, category }),
   import: (data) => api.post('/import', data),
+  getVersions: (id) => api.get(`/prompts/${id}/versions`),
+  getVersion: (id, versionNumber) => api.get(`/prompts/${id}/versions/${versionNumber}`),
+  restoreVersion: (id, versionNumber, change_reason) => api.post(`/prompts/${id}/restore/${versionNumber}`, { change_reason }),
 };
 
 // Categories API

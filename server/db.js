@@ -66,6 +66,22 @@ function initializeDb() {
         if (err) return reject(err);
       });
 
+      db.run(`CREATE TABLE IF NOT EXISTS prompt_versions (
+        id TEXT PRIMARY KEY,
+        prompt_id TEXT NOT NULL,
+        version_number INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        category TEXT,
+        tags TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        change_reason TEXT,
+        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE,
+        UNIQUE(prompt_id, version_number)
+      )`, (err) => {
+        if (err) return reject(err);
+      });
+
       db.run(`CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
@@ -183,7 +199,11 @@ function createPrompt({ title, content, category, tags }) {
 
 async function updatePrompt(idInput, dataToUpdate) {
   const fullId = await _resolvePromptId(idInput);
-  const { title, content, category, tags } = dataToUpdate;
+  const { title, content, category, tags, change_reason } = dataToUpdate;
+  
+  // Get current prompt data for versioning
+  const currentPrompt = await getPromptById(fullId);
+  
   // Ensure tags are handled correctly: join array, use string as is, or default to empty for null/undefined
   let tagsString;
   if (Array.isArray(tags)) {
@@ -195,22 +215,53 @@ async function updatePrompt(idInput, dataToUpdate) {
   }
 
   return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE prompts SET title = ?, content = ?, category = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [title, content, category, tagsString, fullId],
-      async function(err) {
-        if (err) return reject(err);
+    db.serialize(async () => {
+      try {
+        // Get the current version number for this prompt
+        const versionResult = await new Promise((vResolve, vReject) => {
+          db.get('SELECT MAX(version_number) as max_version FROM prompt_versions WHERE prompt_id = ?', [fullId], (err, row) => {
+            if (err) return vReject(err);
+            vResolve(row?.max_version || 0);
+          });
+        });
+
+        const nextVersion = versionResult + 1;
+
+        // Create version record of current state before updating
+        await new Promise((vResolve, vReject) => {
+          const versionId = uuidv4();
+          const currentTagsString = Array.isArray(currentPrompt.tags) ? currentPrompt.tags.join(',') : currentPrompt.tags || '';
+          
+          db.run(
+            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, tags, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, currentTagsString, change_reason || 'Updated prompt'],
+            function(err) {
+              if (err) return vReject(err);
+              vResolve();
+            }
+          );
+        });
+
+        // Update the main prompt
+        await new Promise((uResolve, uReject) => {
+          db.run(
+            'UPDATE prompts SET title = ?, content = ?, category = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [title, content, category, tagsString, fullId],
+            function(err) {
+              if (err) return uReject(err);
+              uResolve();
+            }
+          );
+        });
+
         // Fetch the updated prompt to return its latest state
-        try {
-          const updatedPromptData = await getPromptById(fullId); // getPromptById now expects a resolved ID
-          resolve(updatedPromptData);
-        } catch (fetchErr) {
-          // This might happen if the prompt was deleted between _resolvePromptId and here by another process
-          console.error(`Error fetching prompt ${fullId} after update:`, fetchErr);
-          resolve(null); // Or reject(fetchErr) if we want to be stricter
-        }
+        const updatedPromptData = await getPromptById(fullId);
+        resolve(updatedPromptData);
+      } catch (err) {
+        console.error(`Error updating prompt ${fullId}:`, err);
+        reject(err);
       }
-    );
+    });
   });
 }
 
@@ -307,6 +358,113 @@ function deleteAllPrompts() {
 }
 
 
+function getPromptVersions(idInput) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const fullId = await _resolvePromptId(idInput);
+      db.all(
+        'SELECT * FROM prompt_versions WHERE prompt_id = ? ORDER BY version_number DESC',
+        [fullId],
+        (err, rows) => {
+          if (err) return reject(err);
+          const versions = rows.map(row => ({
+            ...row,
+            tags: row.tags ? row.tags.split(',') : []
+          }));
+          resolve(versions);
+        }
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function getPromptVersion(idInput, versionNumber) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const fullId = await _resolvePromptId(idInput);
+      db.get(
+        'SELECT * FROM prompt_versions WHERE prompt_id = ? AND version_number = ?',
+        [fullId, versionNumber],
+        (err, row) => {
+          if (err) return reject(err);
+          if (!row) return reject(new Error(`Version ${versionNumber} not found for prompt ${fullId}`));
+          const version = {
+            ...row,
+            tags: row.tags ? row.tags.split(',') : []
+          };
+          resolve(version);
+        }
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+async function restorePromptVersion(idInput, versionNumber, change_reason) {
+  const fullId = await _resolvePromptId(idInput);
+  
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Get the version to restore
+      const versionToRestore = await getPromptVersion(fullId, versionNumber);
+      
+      // Get current prompt for creating a version before restoration
+      const currentPrompt = await getPromptById(fullId);
+      
+      db.serialize(async () => {
+        // Get next version number
+        const versionResult = await new Promise((vResolve, vReject) => {
+          db.get('SELECT MAX(version_number) as max_version FROM prompt_versions WHERE prompt_id = ?', [fullId], (err, row) => {
+            if (err) return vReject(err);
+            vResolve(row?.max_version || 0);
+          });
+        });
+
+        const nextVersion = versionResult + 1;
+
+        // Create version record of current state before restoring
+        await new Promise((vResolve, vReject) => {
+          const versionId = uuidv4();
+          const currentTagsString = Array.isArray(currentPrompt.tags) ? currentPrompt.tags.join(',') : currentPrompt.tags || '';
+          
+          db.run(
+            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, tags, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, currentTagsString, change_reason || `Restored to version ${versionNumber}`],
+            function(err) {
+              if (err) return vReject(err);
+              vResolve();
+            }
+          );
+        });
+
+        // Restore the prompt to the specified version
+        const tagsString = Array.isArray(versionToRestore.tags) ? versionToRestore.tags.join(',') : versionToRestore.tags || '';
+        
+        await new Promise((uResolve, uReject) => {
+          db.run(
+            'UPDATE prompts SET title = ?, content = ?, category = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [versionToRestore.title, versionToRestore.content, versionToRestore.category, tagsString, fullId],
+            function(err) {
+              if (err) return uReject(err);
+              uResolve();
+            }
+          );
+        });
+
+        // Return the restored prompt
+        const restoredPrompt = await getPromptById(fullId);
+        resolve(restoredPrompt);
+      });
+    } catch (err) {
+      console.error(`Error restoring prompt ${fullId} to version ${versionNumber}:`, err);
+      reject(err);
+    }
+  });
+}
+
 module.exports = {
   setupDatabase,
   closeDb,
@@ -320,5 +478,8 @@ module.exports = {
   exportData,
   importData,
   deleteAllPrompts,
+  getPromptVersions,
+  getPromptVersion,
+  restorePromptVersion,
   getDbInstance: () => db 
 }; 

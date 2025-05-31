@@ -13,7 +13,8 @@ function PromptEditor({ categories, onSave }) {
     title: '',
     content: '',
     category: '',
-    tags: []
+    tags: [],
+    change_reason: ''
   });
   const [loading, setLoading] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -265,6 +266,26 @@ function PromptEditor({ categories, onSave }) {
                   {formData.content.length} characters
                 </p>
               </div>
+
+              {/* Change Reason (only show when editing) */}
+              {isEditing && (
+                <div className="mb-6">
+                  <label htmlFor="change_reason" className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for changes (optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="change_reason"
+                    value={formData.change_reason}
+                    onChange={(e) => handleInputChange('change_reason', e.target.value)}
+                    className="input-field"
+                    placeholder="Briefly describe what you changed and why..."
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    This will be saved in the version history to help track changes.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

@@ -73,6 +73,49 @@ app.put('/api/prompts/:id', async (req, res) => {
   }
 });
 
+// Get prompt versions
+app.get('/api/prompts/:id/versions', async (req, res) => {
+  try {
+    const versions = await db.getPromptVersions(req.params.id);
+    res.json(versions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get specific prompt version
+app.get('/api/prompts/:id/versions/:versionNumber', async (req, res) => {
+  try {
+    const version = await db.getPromptVersion(req.params.id, parseInt(req.params.versionNumber));
+    res.json(version);
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      res.status(404).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+// Restore prompt to specific version
+app.post('/api/prompts/:id/restore/:versionNumber', async (req, res) => {
+  try {
+    const { change_reason } = req.body;
+    const restoredPrompt = await db.restorePromptVersion(
+      req.params.id, 
+      parseInt(req.params.versionNumber),
+      change_reason
+    );
+    res.json(restoredPrompt);
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      res.status(404).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 // Delete prompt
 app.delete('/api/prompts/:id', async (req, res) => {
   try {
