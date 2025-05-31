@@ -15,6 +15,9 @@ A modern web application for managing your AI/LLM prompts with a clean, intuitiv
 - **📊 Export/Import**: Backup and restore your prompts as JSON files
 - **📱 Responsive Design**: Works perfectly on desktop and mobile devices
 - **🎨 Modern UI**: Clean, professional interface built with Tailwind CSS
+- **📚 Version History**: Track and restore previous versions of your prompts
+- **📝 Change Tracking**: Document reasons for prompt changes
+- **🎯 Enhanced AI Analysis**: Detailed prompt analysis with readability scoring and token estimation
 
 ### 🧠 AI Suggestions Feature
 
@@ -24,6 +27,15 @@ The AI Suggestions feature analyzes your prompts and provides:
 - **Readability scoring** to ensure clarity
 - **Token estimation** for cost planning
 - **Detailed analysis** covering clarity, specificity, and constraints
+
+### 📚 Version History Feature
+
+The Version History feature provides:
+- **Complete change history** for each prompt
+- **Version comparison** showing character differences
+- **Change reason tracking** to document modifications
+- **One-click version restoration** with automatic backup
+- **Detailed version metadata** including timestamps and change reasons
 
 ## 🛠️ Tech Stack
 
@@ -240,6 +252,9 @@ The app uses SQLite for simplicity and portability. The database file (`prompts.
 - `PUT /api/prompts/:id` - Update prompt
 - `DELETE /api/prompts/:id` - Delete prompt
 - `POST /api/prompts/suggestions` - Get AI suggestions for a prompt
+- `GET /api/prompts/:id/versions` - Get version history for a prompt
+- `GET /api/prompts/:id/versions/:versionNumber` - Get specific version
+- `POST /api/prompts/:id/restore/:versionNumber` - Restore to a previous version
 
 ### Categories
 - `GET /api/categories` - Get all categories
@@ -258,6 +273,7 @@ The app uses Tailwind CSS for styling. You can customize:
 1. **Colors**: Edit `client/tailwind.config.js`
 2. **Component Styles**: Modify classes in `client/src/index.css`
 3. **Theme**: Update color schemes in components
+4. **Category Colors**: Choose from 10 predefined colors or add custom ones
 
 ### Adding Features
 The modular structure makes it easy to add features:
@@ -265,6 +281,7 @@ The modular structure makes it easy to add features:
 1. **New API endpoints**: Add routes in `server/index.js`
 2. **New components**: Create in `client/src/components/`
 3. **Database changes**: Modify schema in server startup
+4. **Version tracking**: Extend the version history system
 
 ## 🚀 Production Deployment
 
