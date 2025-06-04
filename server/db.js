@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-const dbPath = path.join(__dirname, 'prompts.db');
+// Allow overriding the database path for tests or custom setups
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'prompts.db');
 let db;
 
 // Internal helper to resolve a prompt ID (full or prefix)
