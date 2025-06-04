@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, RotateCcw, ArrowLeft, Calendar, User, MessageSquare } from 'lucide-react';
+import { Clock, RotateCcw, X, Calendar, MessageSquare } from 'lucide-react';
 import { promptsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -83,32 +83,31 @@ function VersionHistory({ prompt, onVersionRestore, onClose }) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
+      <div className="p-6 flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <Clock className="h-5 w-5 text-gray-600" />
-              <h2 className="text-lg font-medium text-gray-900">Version History</h2>
-            </div>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            )}
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center space-x-3">
+            <Clock className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-medium text-gray-900">Version History</h2>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1">
 
           {versions.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

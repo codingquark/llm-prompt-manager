@@ -12,6 +12,20 @@ function PromptDetail({ categories, onPromptDeleted }) {
   const [loading, setLoading] = useState(true);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        setShowVersionHistory(false);
+      }
+    };
+    if (showVersionHistory) {
+      window.addEventListener('keydown', handleKey);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [showVersionHistory]);
+
   const loadPrompt = useCallback(async () => {
     try {
       setLoading(true);
@@ -202,15 +216,21 @@ function PromptDetail({ categories, onPromptDeleted }) {
 
       {/* Version History */}
       {showVersionHistory && (
-        <div className="mt-6">
-          <VersionHistory
-            prompt={prompt}
-            onVersionRestore={() => {
-              loadPrompt();
-              setShowVersionHistory(false);
-            }}
-            onClose={() => setShowVersionHistory(false)}
+        <div className="fixed inset-0 z-40 flex">
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowVersionHistory(false)}
           />
+          <div className="relative ml-auto w-full max-w-xl h-full bg-white shadow-xl slide-in-right overflow-y-auto">
+            <VersionHistory
+              prompt={prompt}
+              onVersionRestore={() => {
+                loadPrompt();
+                setShowVersionHistory(false);
+              }}
+              onClose={() => setShowVersionHistory(false)}
+            />
+          </div>
         </div>
       )}
 
