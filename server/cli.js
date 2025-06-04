@@ -126,7 +126,9 @@ program
         tags: options.tags ? options.tags.split(',').map(tag => tag.trim()) : existingPrompt.tags
       };
 
-      if (Object.keys(options).length === 0) {
+      // Commander always provides the option keys, even if the user did not
+      // supply values. Check each field explicitly to detect a no-op update.
+      if (!options.title && !options.content && !options.category && !options.tags) {
          console.log(chalk.yellow('No update options provided. Use -h for help.'));
          return;
       }
