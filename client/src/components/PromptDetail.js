@@ -194,20 +194,20 @@ function PromptDetail({ categories, onPromptDeleted }) {
       )}
 
       {/* Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Prompt Content</h2>
+            <h2 className="text-lg font-medium text-gray-900">Prompt Content</h2>
             <button
               onClick={handleCopy}
-              className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               Copy to clipboard
             </button>
           </div>
           
           <div className="prose prose-sm max-w-none">
-            <pre className="whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 rounded-lg p-4 text-sm text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <pre className="whitespace-pre-wrap bg-gray-50 rounded-lg p-4 text-sm text-gray-900 border border-gray-200 overflow-x-auto">
               {prompt.content}
             </pre>
           </div>
@@ -235,25 +235,25 @@ function PromptDetail({ categories, onPromptDeleted }) {
       )}
 
       {/* Metadata */}
-      <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Details</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Details</h3>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt className="text-sm font-medium text-gray-700 dark:text-gray-300">Created</dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100">{formatDate(prompt.created_at)}</dd>
+              <dt className="text-sm font-medium text-gray-700">Created</dt>
+              <dd className="text-sm text-gray-900">{formatDate(prompt.created_at)}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Updated</dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100">{formatDate(prompt.updated_at)}</dd>
+              <dt className="text-sm font-medium text-gray-700">Last Updated</dt>
+              <dd className="text-sm text-gray-900">{formatDate(prompt.updated_at)}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100">{prompt.category || 'None'}</dd>
+              <dt className="text-sm font-medium text-gray-700">Category</dt>
+              <dd className="text-sm text-gray-900">{prompt.category || 'None'}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-700 dark:text-gray-300">Character Count</dt>
-              <dd className="text-sm text-gray-900 dark:text-gray-100">{prompt.content.length}</dd>
+              <dt className="text-sm font-medium text-gray-700">Character Count</dt>
+              <dd className="text-sm text-gray-900">{prompt.content.length}</dd>
             </div>
           </dl>
         </div>
