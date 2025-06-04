@@ -164,7 +164,7 @@ function PromptEditor({ categories, onSave }) {
         {/* Main Form */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               {/* Title */}
               <div className="mb-6">
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -311,10 +311,10 @@ function PromptEditor({ categories, onSave }) {
 
         {/* Suggestions Panel */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 flex flex-col items-center sticky top-6 min-h-[380px]">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 flex flex-col items-center sticky top-6 min-h-[380px]">
             <div className="flex flex-col items-center w-full mb-6">
               <Lightbulb className="h-8 w-8 text-yellow-400 mb-2" />
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">AI Suggestions</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Suggestions</h3>
               <button
                 type="button"
                 onClick={loadSuggestions}
@@ -378,13 +378,13 @@ function PromptEditor({ categories, onSave }) {
 
                   {/* Metrics */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
                       <div className="flex items-center space-x-2 text-sm text-gray-600">
                         <Clock className="h-4 w-4" />
                         <span>Est. Tokens: {suggestions.estimatedTokens}</span>
                       </div>
                     </div>
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
                       <div className="flex items-center space-x-2 text-sm text-gray-600">
                         <BookOpen className="h-4 w-4" />
                         <span>Readability: {suggestions.readabilityScore}%</span>
@@ -397,7 +397,7 @@ function PromptEditor({ categories, onSave }) {
                     <h4 className="text-base font-medium text-gray-700 mb-2">Detailed Analysis</h4>
                     <div className="space-y-3">
                       {Object.entries(suggestions.suggestions).map(([key, value]) => (
-                        <div key={key} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
+                        <div key={key} className="bg-gray-50 rounded-lg p-3">
                           <h5 className="text-sm font-medium text-gray-900 capitalize mb-1">{key}</h5>
                           <p className="text-sm text-gray-600">{value}</p>
                         </div>
