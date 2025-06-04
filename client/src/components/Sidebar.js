@@ -39,7 +39,7 @@ function Sidebar({ isOpen, categories, selectedCategory, onCategorySelect, onAdd
   ];
 
   return (
-    <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 flex flex-col">
       <div className="p-6">
         <nav className="space-y-2">
           <Link
@@ -47,7 +47,7 @@ function Sidebar({ isOpen, categories, selectedCategory, onCategorySelect, onAdd
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
               location.pathname === '/' && !selectedCategory
                 ? 'bg-blue-100 text-blue-600'
-                : 'text-gray-700 hover:bg-gray-100'
+                : 'text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200'
             }`}
             onClick={() => onCategorySelect('')}
           >
@@ -59,27 +59,27 @@ function Sidebar({ isOpen, categories, selectedCategory, onCategorySelect, onAdd
 
       <div className="px-6 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-gray-900">Categories</h3>
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Categories</h3>
           <button
             onClick={() => setShowNewCategory(true)}
-            className="p-1 rounded hover:bg-gray-100 transition-colors"
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <Plus className="h-4 w-4 text-gray-600" />
+            <Plus className="h-4 w-4 text-gray-600 dark:text-gray-300" />
           </button>
         </div>
 
         {showNewCategory && (
-          <form onSubmit={handleAddCategory} className="mb-4 p-3 border border-gray-200 rounded-lg">
+          <form onSubmit={handleAddCategory} className="mb-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
             <input
               type="text"
               placeholder="Category name"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 rounded mb-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded mb-2 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
               autoFocus
             />
             <div className="flex items-center space-x-2 mb-2">
-              <span className="text-xs text-gray-600">Color:</span>
+              <span className="text-xs text-gray-600 dark:text-gray-300">Color:</span>
               <div className="flex space-x-1">
                 {colors.map(color => (
                   <button
@@ -108,7 +108,7 @@ function Sidebar({ isOpen, categories, selectedCategory, onCategorySelect, onAdd
                   setNewCategoryName('');
                   setNewCategoryColor('#3B82F6');
                 }}
-                className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300"
+                className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>
@@ -124,7 +124,7 @@ function Sidebar({ isOpen, categories, selectedCategory, onCategorySelect, onAdd
               className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${
                 selectedCategory === category.name
                   ? 'bg-blue-100 text-blue-600'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  : 'text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200'
               }`}
             >
               <div
