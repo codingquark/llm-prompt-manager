@@ -18,6 +18,19 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [darkMode, setDarkMode] = useState(() =>
+    localStorage.getItem('theme') === 'dark'
+  );
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   useEffect(() => {
     loadData();
@@ -75,7 +88,7 @@ function App() {
 
   return (
     <Router>
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
         <Toaster position="top-right" />
         
         {/* Sidebar */}
@@ -93,6 +106,8 @@ function App() {
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            darkMode={darkMode}
+            onToggleDarkMode={() => setDarkMode(!darkMode)}
           />
 
           <main className="flex-1 overflow-x-hidden overflow-y-auto">

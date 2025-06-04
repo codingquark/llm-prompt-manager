@@ -92,21 +92,21 @@ function Settings({ categories, prompts, onDataReloaded }) {
           </Link>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
       </div>
 
       <div className="space-y-6">
         {/* Data Management */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Data Management</h2>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Data Management</h2>
             
             <div className="space-y-4">
               {/* Export */}
               <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Export Data</h3>
-                  <p className="text-sm text-gray-600">Download all your prompts and categories as a JSON file</p>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Export Data</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Download all your prompts and categories as a JSON file</p>
                 </div>
                 <button
                   onClick={handleExport}
@@ -121,8 +121,8 @@ function Settings({ categories, prompts, onDataReloaded }) {
               {/* Import */}
               <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Import Data</h3>
-                  <p className="text-sm text-gray-600">Upload a JSON file to import prompts and categories</p>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Import Data</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Upload a JSON file to import prompts and categories</p>
                 </div>
                 <div className="relative">
                   <input
