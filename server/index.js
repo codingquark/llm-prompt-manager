@@ -294,7 +294,6 @@ app.post('/api/prompts/suggestions', async (req, res) => {
 
 {
   "improvements": ["suggestion1", "suggestion2", "suggestion3"],
-  "relatedTags": ["tag1", "tag2", "tag3"],
   "readabilityScore": 85,
   "suggestions": {
     "clarity": "specific clarity suggestion",
@@ -310,9 +309,8 @@ Content: ${content}
 Focus on:
 1. How to make the prompt clearer and more specific
 2. What examples or constraints could be added
-3. Relevant tags based on the content
-4. A readability score from 1-100
-5. Specific actionable improvements`
+3. A readability score from 1-100
+4. Specific actionable improvements`
         }]
       })
     });
@@ -338,14 +336,17 @@ Focus on:
     // Parse the JSON response from Claude
     let suggestions;
     try {
-      suggestions = JSON.parse(aiContent);
+      // Clean the response by removing markdown formatting
+      const cleanedContent = aiContent
+        .replace(/```json\n?/g, '')  // Remove opening ```json
+        .replace(/```\n?/g, '')      // Remove closing ```
+        .trim();                     // Remove any extra whitespace
+      
+      suggestions = JSON.parse(cleanedContent);
       
       // Validate required fields
       if (!suggestions.improvements || !Array.isArray(suggestions.improvements)) {
         throw new Error('Invalid improvements field');
-      }
-      if (!suggestions.relatedTags || !Array.isArray(suggestions.relatedTags)) {
-        throw new Error('Invalid relatedTags field');
       }
       if (typeof suggestions.readabilityScore !== 'number') {
         suggestions.readabilityScore = Math.min(100, Math.max(40, 100 - Math.floor(content.length / 20)));
@@ -387,13 +388,8 @@ function generateFallbackSuggestions(content, category) {
     "Try adding constraints or limitations to get more focused responses"
   ];
 
-  const relatedTags = category ? 
-    [category.toLowerCase(), "prompt", "ai"] : 
-    ["prompt", "ai", "general"];
-
   return {
     improvements,
-    relatedTags,
     estimatedTokens: Math.ceil(contentLength / 4),
     readabilityScore: Math.min(100, Math.max(40, 100 - Math.floor(contentLength / 20))),
     suggestions: {

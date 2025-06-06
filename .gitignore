@@ -54,4 +54,4 @@ logs
 .yarn-integrity
 
 # Database
-server/prompts.db
+server/prompts.db*

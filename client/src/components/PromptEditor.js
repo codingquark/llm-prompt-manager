@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, X, Plus, Lightbulb, Sparkles, Tag, Clock, BookOpen, Wand2 } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Lightbulb, Sparkles, Clock, BookOpen, Wand2 } from 'lucide-react';
 import { promptsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -271,31 +271,6 @@ function PromptEditor({ categories, onSave }) {
                         </li>
                       ))}
                     </ul>
-                  </div>
-
-                  {/* Related Tags */}
-                  <div>
-                    <h4 className="text-base font-medium text-gray-700 mb-2">Suggested Tags</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.relatedTags.map((tag) => (
-                        <button
-                          key={tag}
-                          onClick={() => {
-                            if (!formData.tags.includes(tag)) {
-                              setFormData(prev => ({
-                                ...prev,
-                                tags: [...prev.tags, tag]
-                              }));
-                              toast.success(`Added tag: ${tag}`);
-                            }
-                          }}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                        >
-                          <Tag className="h-3 w-3 mr-1" />
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Metrics */}
