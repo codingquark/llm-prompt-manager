@@ -48,7 +48,15 @@ function connectDb() {
         reject(err);
       } else {
         console.log('Connected to the SQLite database.');
-        resolve();
+        // Enable foreign key constraints to ensure related records
+        // (like prompt versions) are removed when a prompt is deleted
+        db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
+          if (pragmaErr) {
+            console.error('Failed to enable foreign key support:', pragmaErr.message);
+            return reject(pragmaErr);
+          }
+          resolve();
+        });
       }
     });
   });
