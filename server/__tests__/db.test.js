@@ -57,4 +57,95 @@ describe('database module', () => {
     expect(deleted).toBe(true);
     await expect(db.getPromptById(prompt.id)).rejects.toThrow();
   });
+
+  describe('FTS search functionality', () => {
+    beforeEach(async () => {
+      // Clean up any existing prompts first
+      await db.deleteAllPrompts();
+      
+      // Create test prompts for search tests
+      await db.createPrompt({
+        title: 'JavaScript Coding Helper',
+        content: 'Help me write JavaScript code for React components',
+        category: 'Coding',
+        tags: ['javascript', 'react', 'frontend']
+      });
+      
+      await db.createPrompt({
+        title: 'Python Data Analysis',
+        content: 'Analyze data using Python pandas and matplotlib',
+        category: 'Coding',
+        tags: ['python', 'data', 'analysis']
+      });
+      
+      await db.createPrompt({
+        title: 'Creative Writing Assistant',
+        content: 'Help me write creative stories and narratives',
+        category: 'Writing',
+        tags: ['creative', 'stories', 'fiction']
+      });
+    });
+
+    test('search by title returns weighted results', async () => {
+      const results = await db.getAllPrompts({ search: 'JavaScript' });
+      expect(results.length).toBe(1);
+      expect(results[0].title).toBe('JavaScript Coding Helper');
+      expect(results[0].search_rank).toBeDefined();
+    });
+
+    test('search by content finds matches', async () => {
+      const results = await db.getAllPrompts({ search: 'React' });
+      expect(results.length).toBe(1);
+      expect(results[0].title).toBe('JavaScript Coding Helper');
+    });
+
+    test('search by tags works correctly', async () => {
+      const results = await db.getAllPrompts({ search: 'python' });
+      expect(results.length).toBe(1);
+      expect(results[0].title).toBe('Python Data Analysis');
+    });
+
+    test('general search finds multiple matches', async () => {
+      const results = await db.getAllPrompts({ search: 'code' });
+      expect(results.length).toBeGreaterThan(0);
+      // Should find JavaScript prompt due to "code" in content
+      expect(results.some(r => r.title === 'JavaScript Coding Helper')).toBe(true);
+    });
+
+    test('search with category filter works', async () => {
+      const results = await db.getAllPrompts({ search: 'data', category: 'Coding' });
+      expect(results.length).toBe(1);
+      expect(results[0].title).toBe('Python Data Analysis');
+    });
+
+    test('no search term returns all prompts without ranking', async () => {
+      const results = await db.getAllPrompts();
+      expect(results.length).toBeGreaterThanOrEqual(3);
+      // Should not have search_rank when no search
+      expect(results[0].search_rank).toBeUndefined();
+    });
+
+    test('search ranking prioritizes title matches', async () => {
+      // Create two prompts: one with term in title, one with term only in content
+      await db.createPrompt({
+        title: 'Machine Learning Guide',
+        content: 'Basic introduction to AI concepts',
+        category: 'Education',
+        tags: ['ai', 'education']
+      });
+      
+      await db.createPrompt({
+        title: 'Programming Tutorial',
+        content: 'Learn machine learning with Python',
+        category: 'Education', 
+        tags: ['programming', 'tutorial']
+      });
+
+      const results = await db.getAllPrompts({ search: 'machine learning' });
+      expect(results.length).toBe(2);
+      // Title match should rank higher than content match
+      expect(results[0].title).toBe('Machine Learning Guide');
+      expect(results[0].search_rank).toBeGreaterThan(results[1].search_rank);
+    });
+  });
 });
