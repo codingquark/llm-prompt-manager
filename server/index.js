@@ -16,6 +16,11 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Serve static files from React build in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/build')));
+}
+
 // Database setup - Handled by db.js
 // const dbPath = path.join(__dirname, 'prompts.db');
 // const dbInstance = new sqlite3.Database(dbPath); // Renamed to dbInstance to avoid conflict, then removed
@@ -125,6 +130,74 @@ app.delete('/api/prompts/:id', async (req, res) => {
     } else {
       res.status(404).json({ error: 'Prompt not found' });
     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Semantic search
+app.post('/api/search/semantic', async (req, res) => {
+  try {
+    const { query, limit = 10 } = req.body;
+    
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+    
+    const results = await db.semanticSearch(query, limit);
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Hybrid search (combines FTS and semantic)
+app.post('/api/search/hybrid', async (req, res) => {
+  try {
+    const { query, category, limit = 10, ftsWeight = 0.6, semanticWeight = 0.4 } = req.body;
+    
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+    
+    const results = await db.hybridSearch(query, { category, limit, ftsWeight, semanticWeight });
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FTS-only search
+app.post('/api/search/fts', async (req, res) => {
+  try {
+    const { query, category, limit = 10 } = req.body;
+    
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+    
+    const results = await db.ftsSearch(query, { category });
+    res.json(results.slice(0, limit));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate embeddings for all prompts
+app.post('/api/embeddings/generate-all', async (req, res) => {
+  try {
+    const result = await db.generateEmbeddingsForAllPrompts();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate embedding for specific prompt
+app.post('/api/prompts/:id/embedding', async (req, res) => {
+  try {
+    const result = await db.generateAndSaveEmbedding(req.params.id);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -349,6 +422,13 @@ async function startServer() {
     console.error("Failed to start the server:", error);
     process.exit(1);
   }
+}
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  });
 }
 
 startServer();
