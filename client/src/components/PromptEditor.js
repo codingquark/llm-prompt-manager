@@ -13,11 +13,9 @@ function PromptEditor({ categories, onSave }) {
     title: '',
     content: '',
     category: '',
-    tags: [],
     change_reason: ''
   });
   const [loading, setLoading] = useState(false);
-  const [tagInput, setTagInput] = useState('');
   const [suggestions, setSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
@@ -29,8 +27,7 @@ function PromptEditor({ categories, onSave }) {
       setFormData({
         title: prompt.title,
         content: prompt.content,
-        category: prompt.category || '',
-        tags: prompt.tags || []
+        category: prompt.category || ''
       });
     } catch (error) {
       console.error('Error loading prompt:', error);
@@ -79,8 +76,7 @@ function PromptEditor({ categories, onSave }) {
       const promptData = {
         ...formData,
         title: formData.title.trim(),
-        content: formData.content.trim(),
-        tags: formData.tags.filter(tag => tag.trim())
+        content: formData.content.trim()
       };
 
       if (isEditing) {
@@ -105,32 +101,6 @@ function PromptEditor({ categories, onSave }) {
       ...prev,
       [field]: value
     }));
-  };
-
-  const addTag = (e) => {
-    e.preventDefault();
-    const tag = tagInput.trim();
-    
-    if (tag && !formData.tags.includes(tag)) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, tag]
-      }));
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      addTag(e);
-    }
   };
 
   if (loading && isEditing) {
@@ -199,54 +169,6 @@ function PromptEditor({ categories, onSave }) {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Tags */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags
-                </label>
-                
-                {/* Existing tags */}
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {formData.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-2 text-blue-600 hover:text-blue-800"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add tag input */}
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Add a tag and press Enter"
-                  />
-                  <button
-                    type="button"
-                    onClick={addTag}
-                    className="btn-secondary flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add</span>
-                  </button>
-                </div>
               </div>
 
               {/* Content */}

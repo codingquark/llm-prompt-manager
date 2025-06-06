@@ -173,26 +173,6 @@ function PromptDetail({ categories, onPromptDeleted }) {
         </div>
       </div>
 
-      {/* Tags */}
-      {prompt.tags && prompt.tags.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center space-x-2 mb-2">
-            <Tag className="h-4 w-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Tags</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {prompt.tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Content */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6">

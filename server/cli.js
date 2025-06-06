@@ -85,16 +85,14 @@ program
   .command('add')
   .description('Add a new prompt')
   .requiredOption('-t, --title <title>', 'Title of the prompt')
-  .requiredOption('-C, --content <content>', 'Content of the prompt') // Changed from -c to -C to avoid conflict with list
+  .requiredOption('-C, --content <content>', 'Content of the prompt')
   .option('--category <category>', 'Category for the prompt')
-  .option('--tags <tags>', 'Comma-separated tags for the prompt')
   .action(async (options) => {
     await withDb(async () => {
       const promptData = {
         title: options.title,
         content: options.content,
-        category: options.category,
-        tags: options.tags ? options.tags.split(',').map(tag => tag.trim()) : []
+        category: options.category
       };
       const newPrompt = await db.createPrompt(promptData);
       console.log(chalk.green('Prompt added successfully!'));
@@ -109,7 +107,6 @@ program
   .option('-t, --title <title>', 'New title for the prompt')
   .option('-C, --content <content>', 'New content for the prompt')
   .option('--category <category>', 'New category for the prompt')
-  .option('--tags <tags>', 'New comma-separated tags for the prompt (replaces existing tags)')
   .action(async (id, options) => {
     await withDb(async () => {
       // Fetch existing prompt to only update provided fields
@@ -122,8 +119,7 @@ program
       const updateData = {
         title: options.title !== undefined ? options.title : existingPrompt.title,
         content: options.content !== undefined ? options.content : existingPrompt.content,
-        category: options.category !== undefined ? options.category : existingPrompt.category,
-        tags: options.tags ? options.tags.split(',').map(tag => tag.trim()) : existingPrompt.tags
+        category: options.category !== undefined ? options.category : existingPrompt.category
       };
 
       if (Object.keys(options).length === 0) {
@@ -136,7 +132,6 @@ program
         console.log(chalk.green(`Prompt "${id}" updated successfully!`));
         console.log(`${chalk.cyan('Title:')} ${updatedPrompt.title}`);
       } else {
-        // This case should ideally be caught by the initial getPromptById check
         console.log(chalk.yellow(`Prompt with ID "${id}" not found or no changes made.`));
       }
     });

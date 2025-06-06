@@ -62,7 +62,6 @@ function initializeDb() {
         title TEXT NOT NULL,
         content TEXT NOT NULL,
         category TEXT,
-        tags TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`, (err) => {
@@ -76,7 +75,6 @@ function initializeDb() {
         title TEXT NOT NULL,
         content TEXT NOT NULL,
         category TEXT,
-        tags TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         change_reason TEXT,
         FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE,
@@ -111,7 +109,6 @@ function initializeDb() {
         id UNINDEXED,
         title,
         content,
-        tags,
         category,
         created_at UNINDEXED,
         updated_at UNINDEXED,
@@ -123,8 +120,8 @@ function initializeDb() {
 
       // Create triggers to keep FTS table synchronized
       db.run(`CREATE TRIGGER IF NOT EXISTS prompts_fts_insert AFTER INSERT ON prompts BEGIN
-        INSERT INTO prompts_fts(rowid, id, title, content, tags, category, created_at, updated_at)
-        VALUES (new.rowid, new.id, new.title, new.content, new.tags, new.category, new.created_at, new.updated_at);
+        INSERT INTO prompts_fts(rowid, id, title, content, category, created_at, updated_at)
+        VALUES (new.rowid, new.id, new.title, new.content, new.category, new.created_at, new.updated_at);
       END`, (err) => {
         if (err) return reject(err);
       });
@@ -133,7 +130,6 @@ function initializeDb() {
         UPDATE prompts_fts SET 
           title = new.title,
           content = new.content,
-          tags = new.tags,
           category = new.category,
           updated_at = new.updated_at
         WHERE rowid = new.rowid;
@@ -196,8 +192,8 @@ function populateFTSTable() {
         }
         
         const stmt = db.prepare(`
-          INSERT INTO prompts_fts(rowid, id, title, content, tags, category, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO prompts_fts(rowid, id, title, content, category, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
         
         let processed = 0;
@@ -206,7 +202,7 @@ function populateFTSTable() {
         rows.forEach(row => {
           stmt.run(
             row.rowid, row.id, row.title, row.content, 
-            row.tags, row.category, row.created_at, row.updated_at,
+            row.category, row.created_at, row.updated_at,
             (err) => {
               if (err) {
                 console.error('Error inserting FTS row:', err.message);
@@ -376,8 +372,8 @@ async function updatePrompt(idInput, dataToUpdate) {
           const currentTagsString = Array.isArray(currentPrompt.tags) ? currentPrompt.tags.join(',') : currentPrompt.tags || '';
           
           db.run(
-            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, tags, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, currentTagsString, change_reason || 'Updated prompt'],
+            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, change_reason || 'Updated prompt'],
             function(err) {
               if (err) return vReject(err);
               vResolve();
@@ -388,8 +384,8 @@ async function updatePrompt(idInput, dataToUpdate) {
         // Update the main prompt
         await new Promise((uResolve, uReject) => {
           db.run(
-            'UPDATE prompts SET title = ?, content = ?, category = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [title, content, category, tagsString, fullId],
+            'UPDATE prompts SET title = ?, content = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [title, content, category, fullId],
             function(err) {
               if (err) return uReject(err);
               uResolve();
@@ -580,8 +576,8 @@ async function restorePromptVersion(idInput, versionNumber, change_reason) {
           const currentTagsString = Array.isArray(currentPrompt.tags) ? currentPrompt.tags.join(',') : currentPrompt.tags || '';
           
           db.run(
-            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, tags, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, currentTagsString, change_reason || `Restored to version ${versionNumber}`],
+            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, change_reason || `Restored to version ${versionNumber}`],
             function(err) {
               if (err) return vReject(err);
               vResolve();
@@ -594,8 +590,8 @@ async function restorePromptVersion(idInput, versionNumber, change_reason) {
         
         await new Promise((uResolve, uReject) => {
           db.run(
-            'UPDATE prompts SET title = ?, content = ?, category = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [versionToRestore.title, versionToRestore.content, versionToRestore.category, tagsString, fullId],
+            'UPDATE prompts SET title = ?, content = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [versionToRestore.title, versionToRestore.content, versionToRestore.category, fullId],
             function(err) {
               if (err) return uReject(err);
               uResolve();

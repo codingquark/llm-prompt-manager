@@ -153,15 +153,6 @@ function VersionHistory({ prompt, onVersionRestore, onClose }) {
                           <p className="text-gray-900">{version.category || 'None'}</p>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-700">Tags:</span>
-                          <p className="text-gray-900">
-                            {version.tags && version.tags.length > 0 
-                              ? version.tags.join(', ') 
-                              : 'None'
-                            }
-                          </p>
-                        </div>
-                        <div>
                           <span className="font-medium text-gray-700">Changes:</span>
                           <p className="text-gray-900">
                             {getDiffText(prompt.content, version.content)}

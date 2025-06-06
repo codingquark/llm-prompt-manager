@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, Trash2, Copy, Calendar, Tag } from 'lucide-react';
+import { Edit, Trash2, Copy, Calendar, Tag, Eye, Clock } from 'lucide-react';
 import { promptsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -66,87 +66,56 @@ function PromptList({ prompts, categories, onPromptDeleted }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {prompts.map((prompt) => (
-          <div key={prompt.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <Link
-                    to={`/prompt/${prompt.id}`}
-                    className="block hover:text-blue-600 transition-colors"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {prompt.title}
-                    </h3>
-                  </Link>
-                  
-                  {prompt.category && (
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: getCategoryColor(prompt.category) }}
-                      />
-                      <span className="text-sm text-gray-600">{prompt.category}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+          <div key={prompt.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                <Link to={`/prompt/${prompt.id}`} className="hover:underline">
+                  {prompt.title}
+                </Link>
+              </h3>
+              {prompt.category && (
+                <span
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  style={{
+                    backgroundColor: categories.find(c => c.name === prompt.category)?.color + '20',
+                    color: categories.find(c => c.name === prompt.category)?.color
+                  }}
+                >
+                  {prompt.category}
+                </span>
+              )}
+              <p className="text-gray-600 mb-4 mt-2 line-clamp-3">
                 {prompt.content}
               </p>
-
-              {prompt.tags && prompt.tags.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-1">
-                    {prompt.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {prompt.tags.length > 3 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        +{prompt.tags.length - 3}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                  <Calendar className="h-3 w-3" />
+              <div className="flex items-center text-sm text-gray-500 mb-2">
+                <span className="flex items-center space-x-1">
+                  <Clock className="h-4 w-4" />
                   <span>{formatDate(prompt.updated_at)}</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleCopy(prompt.content)}
-                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                    title="Copy prompt"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                  
-                  <Link
-                    to={`/prompt/${prompt.id}/edit`}
-                    className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-gray-100 transition-colors"
-                    title="Edit prompt"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Link>
-                  
-                  <button
-                    onClick={() => handleDelete(prompt)}
-                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
-                    title="Delete prompt"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                </span>
               </div>
+            </div>
+            <div className="flex justify-end mt-4 space-x-2">
+              <button
+                onClick={() => handleCopy(prompt.content)}
+                className="flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Copy to clipboard"
+              >
+                <Copy className="h-5 w-5" />
+              </button>
+              <Link
+                to={`/prompt/${prompt.id}/edit`}
+                className="btn-secondary flex items-center justify-center p-2"
+                title="Edit"
+              >
+                <Edit className="h-5 w-5" />
+              </Link>
+              <button
+                onClick={() => handleDelete(prompt)}
+                className="flex items-center justify-center p-2 rounded-lg hover:bg-red-50 transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </button>
             </div>
           </div>
         ))}

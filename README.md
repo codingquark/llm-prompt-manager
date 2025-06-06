@@ -9,8 +9,7 @@ A modern web application for managing your AI/LLM prompts with a clean, intuitiv
 - **📝 Prompt Management**: Create, edit, view, and delete prompts
 - **🤖 AI-Powered Suggestions**: Get intelligent suggestions to improve your prompts using Anthropic's Claude API
 - **🏷️ Categorization**: Organize prompts with customizable colored categories
-- **🔖 Tagging System**: Add tags to prompts for better organization
-- **🔍 Search & Filter**: Quickly find prompts by title, content, tags, or category
+- **🔍 Search & Filter**: Quickly find prompts by title, content, or category
 - **📋 Copy to Clipboard**: One-click copying of prompt content
 - **📊 Export/Import**: Backup and restore your prompts as JSON files
 - **📱 Responsive Design**: Works perfectly on desktop and mobile devices
@@ -23,7 +22,6 @@ A modern web application for managing your AI/LLM prompts with a clean, intuitiv
 
 The AI Suggestions feature analyzes your prompts and provides:
 - **Improvement recommendations** to make your prompts more effective
-- **Suggested tags** based on content analysis
 - **Readability scoring** to ensure clarity
 - **Token estimation** for cost planning
 - **Detailed analysis** covering clarity, specificity, and constraints
@@ -35,7 +33,6 @@ The Version History feature provides:
 - **Version comparison** showing character differences
 - **Change reason tracking** to document modifications
 - **One-click version restoration** with automatic backup
-- **Detailed version metadata** including timestamps and change reasons
 
 ## 🛠️ Tech Stack
 
@@ -148,7 +145,7 @@ To use the AI suggestions feature, you'll need an Anthropic API key:
 1. **Open your browser** and navigate to http://localhost:3000
 2. **Create your first prompt** by clicking the "New Prompt" button
 3. **Add categories** using the "+" button in the sidebar
-4. **Organize your prompts** with tags and categories
+4. **Organize your prompts** with categories
 5. **Get AI suggestions** when creating or editing prompts
 
 ### Key Functions
@@ -158,7 +155,6 @@ To use the AI suggestions feature, you'll need an Anthropic API key:
 - Fill in the title and content (required)
 - Select a category (optional)
 - Click "Get Suggestions" to receive AI-powered improvements
-- Review and apply suggested tags with one click
 - Use the detailed analysis to refine your prompt
 - Click "Create Prompt" to save
 
@@ -166,7 +162,6 @@ To use the AI suggestions feature, you'll need an Anthropic API key:
 - **Write your prompt content** (at least 10 characters)
 - **Click "Get Suggestions"** to analyze your prompt
 - **Review improvements** suggested by AI
-- **Add suggested tags** with one click
 - **Check metrics** like token count and readability score
 - **Apply detailed analysis** for clarity, specificity, and constraints
 
@@ -178,7 +173,7 @@ To use the AI suggestions feature, you'll need an Anthropic API key:
 #### Search and Filter
 - Use the search bar in the header to find prompts
 - Click on categories in the sidebar to filter
-- Search works across titles, content, and tags
+- Search works across titles and content
 
 #### Export/Import
 - Go to Settings to export all your data as JSON
