@@ -122,7 +122,9 @@ program
         category: options.category !== undefined ? options.category : existingPrompt.category
       };
 
-      if (Object.keys(options).length === 0) {
+      // Commander always provides the option keys, even if the user did not
+      // supply values. Check each field explicitly to detect a no-op update.
+      if (!options.title && !options.content && !options.category && !options.tags) {
          console.log(chalk.yellow('No update options provided. Use -h for help.'));
          return;
       }
