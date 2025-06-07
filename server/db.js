@@ -1,338 +1,94 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fetch = require('node-fetch');
-require('dotenv').config();
+const { eq, like, desc, sql, count, and, asc } = require('drizzle-orm');
 
-// Allow overriding the database path for tests or custom setups
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'prompts.db');
-let db;
+const { 
+  db, 
+  sqlite, 
+  setupDatabase, 
+  closeDb, 
+  _resolvePromptId,
+  prompts,
+  promptVersions,
+  categories,
+  promptEmbeddings
+} = require('./database');
 
-// Internal helper to resolve a prompt ID (full or prefix)
-function _resolvePromptId(idInput) {
-  return new Promise((resolve, reject) => {
-    if (!idInput || String(idInput).trim() === '') {
-      return reject(new Error("Prompt ID or prefix cannot be empty."));
-    }
-    const idString = String(idInput);
-
-    // Standard UUID length is 36 characters
-    if (idString.length === 36) {
-      db.get('SELECT id FROM prompts WHERE id = ?', [idString], (err, row) => {
-        if (err) return reject(err);
-        if (!row) return reject(new Error(`Prompt with ID \"${idString}\" not found.`));
-        resolve(row.id);
-      });
-    } else if (idString.length > 0 && idString.length < 36) {
-      db.all('SELECT id FROM prompts WHERE id LIKE ?', [idString + '%'], (err, rows) => {
-        if (err) return reject(err);
-        if (rows.length === 1) {
-          resolve(rows[0].id);
-        } else if (rows.length > 1) {
-          reject(new Error(`Ambiguous ID prefix \"${idString}\". ${rows.length} prompts found. Please be more specific.`));
-        } else { // 0 rows
-          reject(new Error(`No prompt found with ID prefix \"${idString}\".`));
-        }
-      });
-    } else { // Should be caught by initial check, but as a fallback
-      reject(new Error(`Invalid ID or prefix provided: \"${idString}\".`));
-    }
-  });
-}
-
-function connectDb() {
-  return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        console.error('Error connecting to the database:', err.message);
-        reject(err);
-      } else {
-        console.log('Connected to the SQLite database.');
-        resolve();
-      }
-    });
-  });
-}
-
-function initializeDb() {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      db.run(`CREATE TABLE IF NOT EXISTS prompts (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        category TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`, (err) => {
-        if (err) return reject(err);
-      });
-
-      db.run(`CREATE TABLE IF NOT EXISTS prompt_versions (
-        id TEXT PRIMARY KEY,
-        prompt_id TEXT NOT NULL,
-        version_number INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        category TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        change_reason TEXT,
-        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE,
-        UNIQUE(prompt_id, version_number)
-      )`, (err) => {
-        if (err) return reject(err);
-      });
-
-      db.run(`CREATE TABLE IF NOT EXISTS categories (
-        id TEXT PRIMARY KEY,
-        name TEXT UNIQUE NOT NULL,
-        color TEXT DEFAULT '#3B82F6',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`, (err) => {
-        if (err) return reject(err);
-      });
-
-      // Create embeddings table for semantic search
-      db.run(`CREATE TABLE IF NOT EXISTS prompt_embeddings (
-        prompt_id TEXT PRIMARY KEY,
-        embedding BLOB NOT NULL,
-        embedding_model TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
-      )`, (err) => {
-        if (err) return reject(err);
-      });
-
-      // Create FTS5 virtual table for enhanced search
-      db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS prompts_fts USING fts5(
-        id UNINDEXED,
-        title,
-        content,
-        category,
-        created_at UNINDEXED,
-        updated_at UNINDEXED,
-        content='prompts',
-        content_rowid='rowid'
-      )`, (err) => {
-        if (err) return reject(err);
-      });
-
-      // Create triggers to keep FTS table synchronized
-      db.run(`CREATE TRIGGER IF NOT EXISTS prompts_fts_insert AFTER INSERT ON prompts BEGIN
-        INSERT INTO prompts_fts(rowid, id, title, content, category, created_at, updated_at)
-        VALUES (new.rowid, new.id, new.title, new.content, new.category, new.created_at, new.updated_at);
-      END`, (err) => {
-        if (err) return reject(err);
-      });
-
-      db.run(`CREATE TRIGGER IF NOT EXISTS prompts_fts_update AFTER UPDATE ON prompts BEGIN
-        UPDATE prompts_fts SET 
-          title = new.title,
-          content = new.content,
-          category = new.category,
-          updated_at = new.updated_at
-        WHERE rowid = new.rowid;
-      END`, (err) => {
-        if (err) return reject(err);
-      });
-
-      db.run(`CREATE TRIGGER IF NOT EXISTS prompts_fts_delete AFTER DELETE ON prompts BEGIN
-        DELETE FROM prompts_fts WHERE rowid = old.rowid;
-      END`, (err) => {
-        if (err) return reject(err);
-      });
-
-      const defaultCategories = [
-        { name: 'Writing', color: '#10B981' },
-        { name: 'Coding', color: '#8B5CF6' },
-        { name: 'Analysis', color: '#F59E0B' },
-        { name: 'Creative', color: '#EF4444' },
-        { name: 'General', color: '#6B7280' }
-      ];
-
-      const stmt = db.prepare(`INSERT OR IGNORE INTO categories (id, name, color) VALUES (?, ?, ?)`);
-      defaultCategories.forEach(category => {
-        stmt.run(uuidv4(), category.name, category.color, (err) => {
-          if (err) console.error('Error inserting default category:', category.name, err.message);
-        });
-      });
-      stmt.finalize(async (err) => {
-        if (err) {
-          console.error('Error finalizing default categories insertion:', err.message);
-          return reject(err);
-        }
-        
-        // Populate FTS table with existing data
-        try {
-          await populateFTSTable();
-          console.log('Database initialized successfully.');
-          resolve();
-        } catch (ftsErr) {
-          console.error('Error populating FTS table:', ftsErr.message);
-          reject(ftsErr);
-        }
-      });
-    });
-  });
-}
-
-function populateFTSTable() {
-  return new Promise((resolve, reject) => {
-    // First, clear existing FTS data
-    db.run('DELETE FROM prompts_fts', (err) => {
-      if (err) return reject(err);
+// CRUD Operations
+async function getAllPrompts({ category, search } = {}) {
+  try {
+    // If no search term, use simple query
+    if (!search) {
+      let query = db.select().from(prompts);
       
-      // Then populate with current prompts data
-      db.all('SELECT rowid, * FROM prompts', (err, rows) => {
-        if (err) return reject(err);
-        
-        if (rows.length === 0) {
-          return resolve(); // No data to populate
-        }
-        
-        const stmt = db.prepare(`
-          INSERT INTO prompts_fts(rowid, id, title, content, category, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-        
-        let processed = 0;
-        const total = rows.length;
-        
-        rows.forEach(row => {
-          stmt.run(
-            row.rowid, row.id, row.title, row.content, 
-            row.category, row.created_at, row.updated_at,
-            (err) => {
-              if (err) {
-                console.error('Error inserting FTS row:', err.message);
-              }
-              processed++;
-              if (processed === total) {
-                stmt.finalize((finalizeErr) => {
-                  if (finalizeErr) return reject(finalizeErr);
-                  console.log(`Populated FTS table with ${total} prompts`);
-                  resolve();
-                });
-              }
-            }
-          );
-        });
-      });
-    });
-  });
-}
-
-async function setupDatabase() {
-  await connectDb();
-  await initializeDb();
-}
-
-function closeDb() {
-  return new Promise((resolve, reject) => {
-    db.close((err) => {
-      if (err) {
-        console.error(err.message);
-        reject(err);
-      } else {
-        console.log('Database connection closed.');
-        resolve();
+      if (category) {
+        query = query.where(eq(prompts.category, category));
       }
-    });
-  });
-}
-
-function getAllPrompts({ category, search } = {}) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // If no search term, use simple query
-      if (!search) {
-        let query = 'SELECT * FROM prompts';
-        let params = [];
-
-        if (category) {
-          query += ' WHERE category = ?';
-          params.push(category);
-        }
-        query += ' ORDER BY updated_at DESC';
-
-        db.all(query, params, (err, rows) => {
-          if (err) return reject(err);
-          const prompts = rows;
-          resolve(prompts);
-        });
-        return;
-      }
-
-      // Check if embeddings are available for hybrid search
-      const embeddingCount = await new Promise((countResolve, countReject) => {
-        db.get('SELECT COUNT(*) as count FROM prompt_embeddings', [], (err, row) => {
-          if (err) return countReject(err);
-          countResolve(row.count);
-        });
-      });
-
-      // Use hybrid search if embeddings are available, otherwise fall back to FTS
-      if (embeddingCount > 0) {
-        console.log(`Using hybrid search (${embeddingCount} embeddings available)`);
-        const results = await hybridSearch(search, { category });
-        resolve(results);
-      } else {
-        console.log('No embeddings available, using FTS search');
-        const results = await ftsSearch(search, { category });
-        resolve(results);
-      }
-    } catch (error) {
-      reject(error);
+      
+      return await query.orderBy(desc(prompts.updated_at));
     }
-  });
+
+    // Check if embeddings are available for hybrid search
+    const embeddingResult = await db.select({ count: count() }).from(promptEmbeddings);
+    const embeddingCount = embeddingResult[0].count;
+
+    // Use hybrid search if embeddings are available, otherwise fall back to FTS
+    if (embeddingCount > 0) {
+      console.log(`Using hybrid search (${embeddingCount} embeddings available)`);
+      return await hybridSearch(search, { category });
+    } else {
+      console.log('No embeddings available, using FTS search');
+      return await ftsSearch(search, { category });
+    }
+  } catch (error) {
+    throw error;
+  }
 }
 
 async function getPromptById(idInput) {
   const fullId = await _resolvePromptId(idInput);
-  return new Promise((resolve, reject) => {
-    db.get('SELECT * FROM prompts WHERE id = ?', [fullId], (err, row) => {
-      if (err) return reject(err);
-      if (!row) return reject(new Error(`Prompt ${fullId} was not found after ID resolution. This should not happen.`));
-      resolve(row);
-    });
-  });
+  const result = await db.select().from(prompts).where(eq(prompts.id, fullId)).limit(1);
+  
+  if (result.length === 0) {
+    throw new Error(`Prompt ${fullId} was not found after ID resolution. This should not happen.`);
+  }
+  
+  return result[0];
 }
 
-function createPrompt({ title, content, category }) {
-  return new Promise((resolve, reject) => {
-    const id = uuidv4();
-    const now = new Date().toISOString();
-    
-    db.run(
-      `INSERT INTO prompts (id, title, content, category, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, title, content, category, now, now],
-      function(err) {
-        if (err) {
-          return reject(err);
-        }
-        
-        // Create initial version
-        db.run(
-          `INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), id, 1, title, content, category, now],
-          (versionErr) => {
-            if (versionErr) {
-              console.error('Error creating initial version:', versionErr);
-            }
-            
-            // Return the created prompt
-            db.get('SELECT * FROM prompts WHERE id = ?', [id], (err, prompt) => {
-              if (err) return reject(err);
-              resolve(prompt);
-            });
-          }
-        );
-      }
-    );
+async function createPrompt({ title, content, category }) {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  
+  // Insert the main prompt
+  await db.insert(prompts).values({
+    id,
+    title,
+    content,
+    category,
+    created_at: now,
+    updated_at: now
   });
+  
+  // Create initial version
+  await db.insert(promptVersions).values({
+    id: uuidv4(),
+    prompt_id: id,
+    version_number: 1,
+    title,
+    content,
+    category,
+    created_at: now
+  });
+  
+  // Generate embedding in the background
+  generateAndSaveEmbedding(id).catch(err => {
+    console.error(`Failed to generate embedding for new prompt ${id}:`, err);
+  });
+  
+  // Return the created prompt
+  const result = await db.select().from(prompts).where(eq(prompts.id, id)).limit(1);
+  return result[0];
 }
 
 async function updatePrompt(idInput, dataToUpdate) {
@@ -342,209 +98,162 @@ async function updatePrompt(idInput, dataToUpdate) {
   // Get current prompt data for versioning
   const currentPrompt = await getPromptById(fullId);
   
-  return new Promise((resolve, reject) => {
-    db.serialize(async () => {
-      try {
-        // Get the current version number for this prompt
-        const versionResult = await new Promise((vResolve, vReject) => {
-          db.get('SELECT MAX(version_number) as max_version FROM prompt_versions WHERE prompt_id = ?', [fullId], (err, row) => {
-            if (err) return vReject(err);
-            vResolve(row?.max_version || 0);
-          });
-        });
-
-        const nextVersion = versionResult + 1;
-
-        // Create version record of current state before updating
-        await new Promise((vResolve, vReject) => {
-          const versionId = uuidv4();
-          
-          db.run(
-            'INSERT INTO prompt_versions (id, prompt_id, version_number, title, content, category, change_reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [versionId, fullId, nextVersion, currentPrompt.title, currentPrompt.content, currentPrompt.category, change_reason || 'Updated prompt'],
-            function(err) {
-              if (err) return vReject(err);
-              vResolve();
-            }
-          );
-        });
-
-        // Update the main prompt
-        await new Promise((uResolve, uReject) => {
-          db.run(
-            'UPDATE prompts SET title = ?, content = ?, category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [title, content, category, fullId],
-            function(err) {
-              if (err) return uReject(err);
-              uResolve();
-            }
-          );
-        });
-
-        // Fetch the updated prompt to return its latest state
-        const updatedPromptData = await getPromptById(fullId);
-
-      // Generate embedding in the background (don't wait for it)
-      generateAndSaveEmbedding(fullId).catch(err => {
-        console.error(`Failed to generate embedding for updated prompt ${fullId}:`, err);
-      });
-        
-        resolve(updatedPromptData);
-      } catch (err) {
-        console.error(`Error updating prompt ${fullId}:`, err);
-        reject(err);
-      }
-    });
+  // Get the current version number for this prompt
+  const versionResult = await db.select({ max_version: sql`MAX(${promptVersions.version_number})` })
+    .from(promptVersions)
+    .where(eq(promptVersions.prompt_id, fullId));
+  
+  const nextVersion = (versionResult[0]?.max_version || 0) + 1;
+  
+  // Create version record of current state before updating
+  await db.insert(promptVersions).values({
+    id: uuidv4(),
+    prompt_id: fullId,
+    version_number: nextVersion,
+    title: currentPrompt.title,
+    content: currentPrompt.content,
+    category: currentPrompt.category,
+    change_reason: change_reason || 'Updated prompt',
+    created_at: new Date().toISOString()
   });
+  
+  // Update the main prompt
+  await db.update(prompts)
+    .set({
+      title,
+      content,
+      category,
+      updated_at: new Date().toISOString()
+    })
+    .where(eq(prompts.id, fullId));
+  
+  // Generate embedding in the background
+  generateAndSaveEmbedding(fullId).catch(err => {
+    console.error(`Failed to generate embedding for updated prompt ${fullId}:`, err);
+  });
+  
+  // Return the updated prompt
+  return await getPromptById(fullId);
 }
 
 async function deletePrompt(idInput) {
   const fullId = await _resolvePromptId(idInput);
-  return new Promise((resolve, reject) => {
-    db.run('DELETE FROM prompts WHERE id = ?', [fullId], function(err) {
-      if (err) return reject(err);
-      resolve(this.changes > 0); // True if a row was deleted, false otherwise
+  const result = await db.delete(prompts).where(eq(prompts.id, fullId));
+  return result.changes > 0;
+}
+
+// Category operations
+async function getAllCategories() {
+  return await db.select().from(categories).orderBy(asc(categories.name));
+}
+
+async function createCategory({ name, color }) {
+  const id = uuidv4();
+  
+  try {
+    await db.insert(categories).values({
+      id,
+      name,
+      color: color || '#3B82F6'
     });
-  });
-}
-
-function getAllCategories() {
-  return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM categories ORDER BY name', (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
-}
-
-function createCategory({ name, color }) {
-  return new Promise((resolve, reject) => {
-    const id = uuidv4();
-    db.run(
-      'INSERT INTO categories (id, name, color) VALUES (?, ?, ?)',
-      [id, name, color || '#3B82F6'],
-      function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE constraint failed')) {
-            return reject(new Error('Category already exists'));
-          }
-          return reject(err);
-        }
-        resolve({ id, name, color: color || '#3B82F6' });
-      }
-    );
-  });
-}
-
-function exportData() {
-  return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM prompts', (err, prompts) => {
-      if (err) return reject(err);
-      
-      db.all('SELECT * FROM categories', (err, categories) => {
-        if (err) return reject(err);
-        
-        resolve({
-          prompts: prompts.map(row => ({
-            id: row.id,
-            title: row.title,
-            content: row.content,
-            category: row.category,
-            created_at: row.created_at
-          })),
-          categories
-        });
-      });
-    });
-  });
-}
-
-function importData({ prompts, categories }) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Import categories first
-      const stmtCategory = db.prepare('INSERT OR REPLACE INTO categories (id, name, color, created_at) VALUES (?, ?, ?, ?)');
-      for (const category of categories) {
-        await new Promise((res, rej) => stmtCategory.run(category.id || uuidv4(), category.name, category.color, category.created_at || new Date().toISOString(), err => err ? rej(err) : res()));
-      }
-      stmtCategory.finalize();
-
-      // Then import prompts
-      const stmtPrompt = db.prepare('INSERT OR REPLACE INTO prompts (id, title, content, category, created_at) VALUES (?, ?, ?, ?, ?)');
-      for (const prompt of prompts) {
-        await new Promise((res, rej) => stmtPrompt.run(prompt.id || uuidv4(), prompt.title, prompt.content, prompt.category, prompt.created_at || new Date().toISOString(), err => err ? rej(err) : res()));
-      }
-      stmtPrompt.finalize();
-
-      resolve({ success: true, message: 'Data imported successfully' });
-    } catch (err) {
-      reject(err);
+    
+    return { id, name, color: color || '#3B82F6' };
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint failed')) {
+      throw new Error('Category already exists');
     }
-  });
+    throw err;
+  }
 }
 
-function deleteAllPrompts() {
-    return new Promise((resolve, reject) => {
-        db.run('DELETE FROM prompts', function(err) {
-            if (err) return reject(err);
-            resolve({ message: 'All prompts deleted successfully', count: this.changes });
-        });
+// Export/Import operations
+async function exportData() {
+  const promptsData = await db.select().from(prompts);
+  const categoriesData = await db.select().from(categories);
+  
+  return {
+    prompts: promptsData.map(row => ({
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      category: row.category,
+      created_at: row.created_at
+    })),
+    categories: categoriesData
+  };
+}
+
+async function importData({ prompts: promptsData, categories: categoriesData }) {
+  // Import categories first
+  for (const category of categoriesData) {
+    await db.insert(categories).values({
+      id: category.id || uuidv4(),
+      name: category.name,
+      color: category.color,
+      created_at: category.created_at || new Date().toISOString()
+    }).onConflictDoUpdate({
+      target: categories.id,
+      set: {
+        name: category.name,
+        color: category.color,
+        created_at: category.created_at || new Date().toISOString()
+      }
     });
+  }
+  
+  // Then import prompts
+  for (const prompt of promptsData) {
+    await db.insert(prompts).values({
+      id: prompt.id || uuidv4(),
+      title: prompt.title,
+      content: prompt.content,
+      category: prompt.category,
+      created_at: prompt.created_at || new Date().toISOString()
+    }).onConflictDoUpdate({
+      target: prompts.id,
+      set: {
+        title: prompt.title,
+        content: prompt.content,
+        category: prompt.category,
+        created_at: prompt.created_at || new Date().toISOString()
+      }
+    });
+  }
+  
+  return { success: true, message: 'Data imported successfully' };
 }
 
-
-function getPromptVersions(idInput) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const fullId = await _resolvePromptId(idInput);
-      
-      db.all(
-        `SELECT * FROM prompt_versions 
-         WHERE prompt_id = ? 
-         ORDER BY version_number DESC`,
-        [fullId],
-        (err, rows) => {
-          if (err) return reject(err);
-          
-          resolve(rows.map(row => ({
-            id: row.id,
-            prompt_id: row.prompt_id,
-            version_number: row.version_number,
-            title: row.title,
-            content: row.content,
-            category: row.category,
-            created_at: row.created_at,
-            change_reason: row.change_reason
-          })));
-        }
-      );
-    } catch (err) {
-      reject(err);
-    }
-  });
+async function deleteAllPrompts() {
+  const result = await db.delete(prompts);
+  return { message: 'All prompts deleted successfully', count: result.changes };
 }
 
-function getPromptVersion(idInput, versionNumber) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const fullId = await _resolvePromptId(idInput);
-      db.get(
-        'SELECT * FROM prompt_versions WHERE prompt_id = ? AND version_number = ?',
-        [fullId, versionNumber],
-        (err, row) => {
-          if (err) return reject(err);
-          if (!row) return reject(new Error(`Version ${versionNumber} not found for prompt ${fullId}`));
-          const version = {
-            ...row,
-            tags: row.tags ? row.tags.split(',') : []
-          };
-          resolve(version);
-        }
-      );
-    } catch (err) {
-      reject(err);
-    }
-  });
+// Version history operations
+async function getPromptVersions(idInput) {
+  const fullId = await _resolvePromptId(idInput);
+  
+  return await db.select()
+    .from(promptVersions)
+    .where(eq(promptVersions.prompt_id, fullId))
+    .orderBy(desc(promptVersions.version_number));
+}
+
+async function getPromptVersion(idInput, versionNumber) {
+  const fullId = await _resolvePromptId(idInput);
+  
+  const result = await db.select()
+    .from(promptVersions)
+    .where(and(
+      eq(promptVersions.prompt_id, fullId),
+      eq(promptVersions.version_number, versionNumber)
+    ))
+    .limit(1);
+  
+  if (result.length === 0) {
+    throw new Error(`Version ${versionNumber} not found for prompt ${fullId}`);
+  }
+  
+  return result[0];
 }
 
 async function restorePromptVersion(idInput, versionNumber, change_reason) {
@@ -556,64 +265,32 @@ async function restorePromptVersion(idInput, versionNumber, change_reason) {
     throw new Error(`Version ${versionNumber} not found for prompt ${fullId}`);
   }
   
-  return new Promise((resolve, reject) => {
-    db.serialize(async () => {
-      try {
-        // Create new version with current state
-        const currentPrompt = await getPromptById(fullId);
-        
-        await new Promise((vResolve, vReject) => {
-          const versionId = uuidv4();
-          
-          db.run(
-            `INSERT INTO prompt_versions (
-              id, prompt_id, version_number, title, content, category, created_at, change_reason
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              versionId,
-              fullId,
-              versionToRestore.version_number + 1,
-              currentPrompt.title,
-              currentPrompt.content,
-              currentPrompt.category,
-              new Date().toISOString(),
-              change_reason
-            ],
-            (err) => {
-              if (err) return vReject(err);
-              vResolve();
-            }
-          );
-        });
-        
-        // Update prompt with restored version
-        await new Promise((uResolve, uReject) => {
-          db.run(
-            `UPDATE prompts 
-             SET title = ?, content = ?, category = ?, updated_at = ?
-             WHERE id = ?`,
-            [
-              versionToRestore.title,
-              versionToRestore.content,
-              versionToRestore.category,
-              new Date().toISOString(),
-              fullId
-            ],
-            (err) => {
-              if (err) return uReject(err);
-              uResolve();
-            }
-          );
-        });
-        
-        // Return the restored prompt
-        const restoredPrompt = await getPromptById(fullId);
-        resolve(restoredPrompt);
-      } catch (err) {
-        reject(err);
-      }
-    });
+  // Create new version with current state
+  const currentPrompt = await getPromptById(fullId);
+  
+  await db.insert(promptVersions).values({
+    id: uuidv4(),
+    prompt_id: fullId,
+    version_number: versionToRestore.version_number + 1,
+    title: currentPrompt.title,
+    content: currentPrompt.content,
+    category: currentPrompt.category,
+    created_at: new Date().toISOString(),
+    change_reason
   });
+  
+  // Update prompt with restored version
+  await db.update(prompts)
+    .set({
+      title: versionToRestore.title,
+      content: versionToRestore.content,
+      category: versionToRestore.category,
+      updated_at: new Date().toISOString()
+    })
+    .where(eq(prompts.id, fullId));
+  
+  // Return the restored prompt
+  return await getPromptById(fullId);
 }
 
 // Embedding functions for semantic search
@@ -702,37 +379,39 @@ function hashString(str) {
   return hash;
 }
 
-function saveEmbedding(promptId, embedding, model = 'text-embedding-3-small') {
-  return new Promise((resolve, reject) => {
-    const embeddingBuffer = Buffer.from(embedding.buffer);
-    
-    db.run(
-      `INSERT OR REPLACE INTO prompt_embeddings 
-       (prompt_id, embedding, embedding_model, updated_at) 
-       VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-      [promptId, embeddingBuffer, model],
-      function(err) {
-        if (err) return reject(err);
-        resolve({ promptId, model });
-      }
-    );
+async function saveEmbedding(promptId, embedding, model = 'text-embedding-3-small') {
+  const embeddingBuffer = Buffer.from(embedding.buffer);
+  
+  await db.insert(promptEmbeddings).values({
+    prompt_id: promptId,
+    embedding: embeddingBuffer,
+    embedding_model: model,
+    updated_at: new Date().toISOString()
+  }).onConflictDoUpdate({
+    target: promptEmbeddings.prompt_id,
+    set: {
+      embedding: embeddingBuffer,
+      embedding_model: model,
+      updated_at: new Date().toISOString()
+    }
   });
+  
+  return { promptId, model };
 }
 
-function getEmbedding(promptId) {
-  return new Promise((resolve, reject) => {
-    db.get(
-      'SELECT embedding, embedding_model FROM prompt_embeddings WHERE prompt_id = ?',
-      [promptId],
-      (err, row) => {
-        if (err) return reject(err);
-        if (!row) return resolve(null);
-        
-        const embedding = new Float32Array(row.embedding.buffer);
-        resolve({ embedding, model: row.embedding_model });
-      }
-    );
-  });
+async function getEmbedding(promptId) {
+  const result = await db.select()
+    .from(promptEmbeddings)
+    .where(eq(promptEmbeddings.prompt_id, promptId))
+    .limit(1);
+  
+  if (result.length === 0) {
+    return null;
+  }
+  
+  const row = result[0];
+  const embedding = new Float32Array(row.embedding.buffer);
+  return { embedding, model: row.embedding_model };
 }
 
 function cosineSimilarity(vecA, vecB) {
@@ -758,22 +437,15 @@ async function semanticSearch(query, limit = 10) {
     // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(query);
     
-    // Get all embeddings
-    const embeddings = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT pe.prompt_id, pe.embedding, p.title, p.content, p.category
-         FROM prompt_embeddings pe
-         JOIN prompts p ON pe.prompt_id = p.id`,
-        [],
-        (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows);
-        }
-      );
-    });
+    // Get all embeddings with prompt data
+    const results = sqlite.prepare(`
+      SELECT pe.prompt_id, pe.embedding, p.title, p.content, p.category
+      FROM prompt_embeddings pe
+      JOIN prompts p ON pe.prompt_id = p.id
+    `).all();
     
     // Calculate similarities and rank
-    const results = embeddings.map(row => {
+    const scoredResults = results.map(row => {
       const embedding = new Float32Array(row.embedding.buffer);
       const similarity = cosineSimilarity(queryEmbedding, embedding);
       
@@ -788,7 +460,7 @@ async function semanticSearch(query, limit = 10) {
     });
     
     // Sort by similarity and return top results
-    return results
+    return scoredResults
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
       
@@ -813,14 +485,14 @@ async function generateAndSaveEmbedding(promptId) {
 
 async function generateEmbeddingsForAllPrompts() {
   try {
-    const prompts = await getAllPrompts();
+    const allPrompts = await getAllPrompts();
     const results = [];
     
-    console.log(`Generating embeddings for ${prompts.length} prompts...`);
+    console.log(`Generating embeddings for ${allPrompts.length} prompts...`);
     
-    for (let i = 0; i < prompts.length; i++) {
-      const prompt = prompts[i];
-      console.log(`Processing ${i + 1}/${prompts.length}: ${prompt.title}`);
+    for (let i = 0; i < allPrompts.length; i++) {
+      const prompt = allPrompts[i];
+      console.log(`Processing ${i + 1}/${allPrompts.length}: ${prompt.title}`);
       
       const result = await generateAndSaveEmbedding(prompt.id);
       results.push(result);
@@ -842,47 +514,39 @@ async function generateEmbeddingsForAllPrompts() {
 }
 
 async function ftsSearch(query, { category } = {}) {
-  return new Promise((resolve, reject) => {
-    // Use FTS5 for search with custom ranking
-    let sqlQuery = `
-      SELECT 
-        p.*,
-        (
-          -- Title matches get highest weight (4x)
-          CASE WHEN p.title LIKE ? THEN 4.0 ELSE 0.0 END +
-          -- Content matches get medium weight (2x)  
-          CASE WHEN p.content LIKE ? THEN 2.0 ELSE 0.0 END +
-          -- Category matches get low weight (1x)
-          CASE WHEN p.category LIKE ? THEN 1.0 ELSE 0.0 END +
-          -- Recency boost (newer prompts get slight boost)
-          (julianday('now') - julianday(p.updated_at)) * -0.1 +
-          -- Base FTS rank (higher = better match)
-          rank * 10
-        ) as search_rank
-      FROM prompts p
-      JOIN prompts_fts fts ON p.rowid = fts.rowid
-      WHERE prompts_fts MATCH ?
-    `;
-    
-    let searchParam = `%${query}%`;
-    let ftsQuery = query.endsWith('*') ? query : query + '*';
-    let params = [searchParam, searchParam, searchParam, ftsQuery];
+  // Use FTS5 for search with custom ranking
+  let sqlQuery = `
+    SELECT 
+      p.*,
+      (
+        -- Title matches get highest weight (4x)
+        CASE WHEN p.title LIKE ? THEN 4.0 ELSE 0.0 END +
+        -- Content matches get medium weight (2x)  
+        CASE WHEN p.content LIKE ? THEN 2.0 ELSE 0.0 END +
+        -- Category matches get low weight (1x)
+        CASE WHEN p.category LIKE ? THEN 1.0 ELSE 0.0 END +
+        -- Recency boost (newer prompts get slight boost)
+        (julianday('now') - julianday(p.updated_at)) * -0.1 +
+        -- Base FTS rank (higher = better match)
+        rank * 10
+      ) as search_rank
+    FROM prompts p
+    JOIN prompts_fts fts ON p.rowid = fts.rowid
+    WHERE prompts_fts MATCH ?
+  `;
+  
+  let searchParam = `%${query}%`;
+  let ftsQuery = query.endsWith('*') ? query : query + '*';
+  let params = [searchParam, searchParam, searchParam, ftsQuery];
 
-    if (category) {
-      sqlQuery += ' AND p.category = ?';
-      params.push(category);
-    }
+  if (category) {
+    sqlQuery += ' AND p.category = ?';
+    params.push(category);
+  }
 
-    sqlQuery += ' ORDER BY search_rank DESC, p.updated_at DESC';
+  sqlQuery += ' ORDER BY search_rank DESC, p.updated_at DESC';
 
-    db.all(sqlQuery, params, (err, rows) => {
-      if (err) {
-        console.error('Error in FTS search:', err);
-        return reject(err);
-      }
-      resolve(rows);
-    });
-  });
+  return sqlite.prepare(sqlQuery).all(...params);
 }
 
 async function hybridSearch(query, { category, limit = 10, ftsWeight = 0.6, semanticWeight = 0.4 } = {}) {
@@ -981,5 +645,5 @@ module.exports = {
   generateEmbeddingsForAllPrompts,
   hybridSearch,
   ftsSearch,
-  getDbInstance: () => db 
-}; 
+  getDbInstance: () => db
+};

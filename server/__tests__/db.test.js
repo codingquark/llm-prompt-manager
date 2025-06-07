@@ -14,43 +14,39 @@ describe('database module', () => {
     const prompt = await db.createPrompt({
       title: 'Test',
       content: 'Hello world',
-      category: 'General',
-      tags: ['tag1', 'tag2']
+      category: 'General'
     });
 
     const fetched = await db.getPromptById(prompt.id);
     expect(fetched.title).toBe('Test');
     expect(fetched.content).toBe('Hello world');
-    expect(fetched.tags).toEqual(['tag1', 'tag2']);
+    expect(fetched.category).toBe('General');
   });
 
   test('updatePrompt stores previous version', async () => {
     const prompt = await db.createPrompt({
       title: 'VersionTest',
       content: 'Original',
-      category: null,
-      tags: []
+      category: null
     });
 
     await db.updatePrompt(prompt.id, {
       title: 'VersionTest',
       content: 'Updated',
       category: 'Test',
-      tags: ['a'],
       change_reason: 'update'
     });
 
     const versions = await db.getPromptVersions(prompt.id);
-    expect(versions.length).toBe(1);
-    expect(versions[0].content).toBe('Original');
+    expect(versions.length).toBe(2); // Initial version + update version
+    expect(versions[0].content).toBe('Original'); // Most recent version first (descending order)
   });
 
   test('deletePrompt removes prompt', async () => {
     const prompt = await db.createPrompt({
       title: 'Delete',
       content: 'To be removed',
-      category: null,
-      tags: []
+      category: null
     });
 
     const deleted = await db.deletePrompt(prompt.id);
@@ -67,22 +63,19 @@ describe('database module', () => {
       await db.createPrompt({
         title: 'JavaScript Coding Helper',
         content: 'Help me write JavaScript code for React components',
-        category: 'Coding',
-        tags: ['javascript', 'react', 'frontend']
+        category: 'Coding'
       });
       
       await db.createPrompt({
         title: 'Python Data Analysis',
         content: 'Analyze data using Python pandas and matplotlib',
-        category: 'Coding',
-        tags: ['python', 'data', 'analysis']
+        category: 'Coding'
       });
       
       await db.createPrompt({
         title: 'Creative Writing Assistant',
         content: 'Help me write creative stories and narratives',
-        category: 'Writing',
-        tags: ['creative', 'stories', 'fiction']
+        category: 'Writing'
       });
     });
 
@@ -99,7 +92,7 @@ describe('database module', () => {
       expect(results[0].title).toBe('JavaScript Coding Helper');
     });
 
-    test('search by tags works correctly', async () => {
+    test('search in content works correctly', async () => {
       const results = await db.getAllPrompts({ search: 'python' });
       expect(results.length).toBe(1);
       expect(results[0].title).toBe('Python Data Analysis');
@@ -130,15 +123,13 @@ describe('database module', () => {
       await db.createPrompt({
         title: 'Machine Learning Guide',
         content: 'Basic introduction to AI concepts',
-        category: 'Education',
-        tags: ['ai', 'education']
+        category: 'Education'
       });
       
       await db.createPrompt({
         title: 'Programming Tutorial',
         content: 'Learn machine learning with Python',
-        category: 'Education', 
-        tags: ['programming', 'tutorial']
+        category: 'Education'
       });
 
       const results = await db.getAllPrompts({ search: 'machine learning' });
