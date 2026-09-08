@@ -10,7 +10,7 @@
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
     "install-all": "npm install && cd server && npm install && cd ../client && npm install",
-    "test": "npx jest"
+    "test": "npx jest --runInBand"
   },
   "keywords": [
     "llm",

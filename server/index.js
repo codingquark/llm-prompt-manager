@@ -427,7 +427,11 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
